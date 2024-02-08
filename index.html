@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NVIDIA Stock Price Bot</title>
+</head>
+<body>
+    <script src="https://cdn.jsdelivr.net/npm/discord.js@13"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        const Discord = require('discord.js');
+        const fetch = require('node-fetch');
+
+        const client = new Discord.Client({
+            intents: [
+                Discord.Intents.FLAGS.GUILDS,
+                Discord.Intents.FLAGS.GUILD_MESSAGES
+            ]
+        });
+
+        const TOKEN = 'MTIwNTE5MTEyNjI2NTQ5NTYxMw.GAI-ZB.S8OH6JJqNy3ga1n2E6d1rytIC_7WCu3xalYNVU';
+        const CHANNEL_ID = '1205195706919559188';
+
+        const alphaVantageApiKey = '56576G7KKPSV5DJP';
+        const nvidiaSymbol = 'NVDA';
+        let lastPrice = null; // Initialize lastPrice to null
+
+        client.once('ready', () => {
+            console.log('Bot is ready!');
+            setInterval(sendPriceUpdate, 60000); // Send price update every minute
+        });
+
+        async function sendPriceUpdate() {
+            try {
+                const response = await fetch(`https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${nvidiaSymbol}&apikey=${alphaVantageApiKey}`);
+                const data = await response.json();
+
+                if (data['Global Quote'] === undefined || data['Global Quote']['05. price'] === undefined) {
+                    throw new Error('Error: Unable to retrieve price data.');
+                }
+
+                const price = parseFloat(data['Global Quote']['05. price']);
+
+                // Check if the price has changed
+                if (lastPrice !== price) {
+                    let color = 'GREEN';
+                    let priceChangeText = '0.00%'; // Default to zero percentage change
+
+                    if (lastPrice !== null && lastPrice !== 0) {
+                        const priceChange = ((price - lastPrice) / lastPrice) * 100;
+
+                        if (priceChange < 0) {
+                            color = 'RED';
+                        }
+                        priceChangeText = priceChange.toFixed(2) + '%';
+                    }
+
+                    const embed = new Discord.MessageEmbed()
+                        .setColor(color)
+                        .setTitle('NVIDIA Stock Price Update')
+                        .setDescription(`Current Price: $${price.toFixed(2)}\nPercentage Change: ${priceChangeText}`)
+                        .setTimestamp();
+
+                    const channel = await client.channels.fetch(CHANNEL_ID);
+                    channel.send({ embeds: [embed] });
+
+                    // Update lastPrice
+                    lastPrice = price;
+                }
+            } catch (error) {
+                console.error('Error fetching data:', error);
+            }
+        }
+
+        client.login(TOKEN);
+    </script>
+</body>
+</html>
